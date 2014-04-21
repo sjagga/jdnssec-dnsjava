@@ -3,6 +3,7 @@
 package org.xbill.DNS;
 
 import java.io.*;
+
 import org.xbill.DNS.utils.*;
 
 /**
@@ -62,6 +63,11 @@ DSRecord(Name name, int dclass, long ttl, int footprint, int alg,
 	this.footprint = checkU16("footprint", footprint);
 	this.alg = checkU8("alg", alg);
 	this.digestid = checkU8("digestid", digestid);
+	if(digest!=null) {
+		String digestInHex = byteArrayToString(digest, false);
+		if (!digestInHex.matches("\\p{XDigit}+"))
+			throw new IllegalArgumentException("Invalid DS record, digest is not in Hex format");
+	}
 	this.digest = digest;
 }
 

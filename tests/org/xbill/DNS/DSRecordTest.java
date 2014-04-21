@@ -34,11 +34,23 @@
 //
 package org.xbill.DNS;
 
-import	java.io.IOException;
-import	java.util.Arrays;
-import	junit.framework.Test;
-import	junit.framework.TestCase;
-import	junit.framework.TestSuite;
+import java.io.IOException;
+import java.util.Arrays;
+
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
+import org.xbill.DNS.DClass;
+import org.xbill.DNS.DNSInput;
+import org.xbill.DNS.DNSOutput;
+import org.xbill.DNS.DSRecord;
+import org.xbill.DNS.Name;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.TextParseException;
+import org.xbill.DNS.Tokenizer;
+import org.xbill.DNS.Type;
+import org.xbill.DNS.utils.base16;
 
 public class DSRecordTest extends TestCase
 {
@@ -78,7 +90,7 @@ public class DSRecordTest extends TestCase
 	    m_footprint = 0xEF01;
 	    m_algorithm = 0x23;
 	    m_digestid = 0x45;
-	    m_digest = new byte[] { (byte)0x67, (byte)0x89, (byte)0xAB, (byte)0xCD, (byte)0xEF };
+	    m_digest = "0d1747a5d4b60b072fb048c5274b512d5ea70efe04feea847cd3a9ec52baadbb4f040572dfc044b8b144d98aaf6b0086fa55d0a249e36cc7ceadbeacdc5d4293".getBytes();
 	}
 	
 	public void test_basic() throws TextParseException
@@ -154,7 +166,18 @@ public class DSRecordTest extends TestCase
 	    }
 	    catch(IllegalArgumentException e){}
 	}
-
+	
+	public void test_invalid_digest() throws TextParseException
+	{
+	    try {
+	    	String digest = "\n0d1747a5d4b60b072fb048c5274b512d5ea70efe04feea847cd3a9ec52baadbb4f040572dfc044b8b144d98aaf6b0086fa55d0a249e36cc7ceadbeacdc5d4293";
+	    	DSRecord dr = new DSRecord(m_n, DClass.IN, m_ttl,
+				       m_footprint, m_algorithm, m_digestid, digest.getBytes());
+		fail("IllegalArgumentException not thrown");
+	    }
+	    catch(IllegalArgumentException e){}
+	}
+	
 	public void test_null_digest()
 	{
 	    DSRecord dr = new DSRecord(m_n, DClass.IN, m_ttl,
@@ -204,30 +227,35 @@ public class DSRecordTest extends TestCase
 
     public void test_rrToString() throws TextParseException
     {
-	String exp = 0xABCD + " " + 0xEF + " " + 0x01 + " 23456789AB";
+    	String digestInHex = "23456789AB";
+    	String digestInBase16 = base16.toString(digestInHex.getBytes());
 
-	DSRecord dr = new DSRecord(Name.fromString("The.Name."), DClass.IN, 0x123,
-				   0xABCD, 0xEF, 0x01,
-				   new byte[] { (byte)0x23, (byte)0x45, (byte)0x67,
-						(byte)0x89, (byte)0xAB });
-	assertEquals(exp, dr.rrToString());
+    	String exp = 0xABCD + " " + 0xEF + " " + 0x01 + " " + digestInBase16;
+
+    	DSRecord dr = new DSRecord(Name.fromString("The.Name."), DClass.IN, 0x123,
+    			0xABCD, 0xEF, 0x01,
+    			"23456789AB".getBytes());
+
+    	assertEquals(exp, dr.rrToString());
     }
 
     public void test_rrToWire() throws TextParseException
     {
-	DSRecord dr = new DSRecord(Name.fromString("The.Name."), DClass.IN, 0x123,
-				   0xABCD, 0xEF, 0x01,
-				   new byte[] { (byte)0x23, (byte)0x45, (byte)0x67,
-						(byte)0x89, (byte)0xAB });
+    	String digestInHex = "23456789AB";
 
-	byte[] exp = new byte[] { (byte)0xAB, (byte)0xCD, (byte)0xEF, 
-				  (byte)0x01, (byte)0x23, (byte)0x45,
-				  (byte)0x67, (byte)0x89, (byte)0xAB };
+    	DSRecord dr = new DSRecord(Name.fromString("The.Name."), DClass.IN, 0x123,
+    			0xABCD, 0xEF, 0x01, digestInHex.getBytes());
 
-	DNSOutput out = new DNSOutput();
-	dr.rrToWire(out, null, true);
+    	byte[] exp = new byte[] { (byte)0xAB, (byte)0xCD, (byte)0xEF, (byte)0x01 }; 
+    	byte [] digestInHexArray = digestInHex.getBytes(); 
+    	byte[] result = Arrays.copyOf(exp, exp.length + digestInHexArray.length); 
+    	  System.arraycopy(digestInHexArray, 0, result, exp.length, digestInHexArray.length);
+    	 
 
-	assertTrue(Arrays.equals(exp, out.toByteArray()));
+    	DNSOutput out = new DNSOutput();
+    	dr.rrToWire(out, null, true);
+    	    	
+    	assertTrue(Arrays.equals(result, out.toByteArray()));
     }
 
     public static Test suite()
